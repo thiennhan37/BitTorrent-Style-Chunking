@@ -6,6 +6,10 @@ from math import ceil
 
 @dataclass(frozen=True, slots=True)
 class Chunk:
+    """
+    Model đại diện cho một mảnh dữ liệu của file.
+    """
+
     id: int
     size_kb: int
 
@@ -24,6 +28,9 @@ class Chunk:
 
     @staticmethod
     def split_file(file_size_kb: int, chunk_size_kb: int) -> list["Chunk"]:
+        """
+        Chia file thành danh sách chunk.
+        """
 
         if file_size_kb <= 0:
             raise ValueError("File size must be greater than 0")
@@ -36,12 +43,12 @@ class Chunk:
 
         for chunk_id in range(total_chunks):
             remaining_size = file_size_kb - chunk_id * chunk_size_kb
-            current_chunk_size = min(chunk_size_kb, remaining_size)
+            current_size = min(chunk_size_kb, remaining_size)
 
             chunks.append(
                 Chunk(
                     id=chunk_id,
-                    size_kb=current_chunk_size,
+                    size_kb=current_size,
                 )
             )
 

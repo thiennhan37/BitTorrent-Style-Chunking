@@ -4,14 +4,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Iterable, Optional
-import random
 
 from models.chunk import Chunk
 
 
 @dataclass(slots=True)
 class Peer:
+
     id: int
+
     download_bandwidth_kbps: float = 512.0
     upload_bandwidth_kbps: float = 512.0
     latency_ms: float = 50.0
@@ -21,8 +22,12 @@ class Peer:
 
     owned_chunks: dict[int, Chunk] = field(default_factory=dict)
 
+    # chunk_id -> source_peer_id
     active_downloads: dict[int, int] = field(default_factory=dict)
+
+    # downloader_peer_id -> chunk_id
     active_uploads: dict[int, int] = field(default_factory=dict)
+
     is_online: bool = True
 
     def __post_init__(self) -> None:
@@ -55,7 +60,6 @@ class Peer:
         max_download_slots: int = 1,
         max_upload_slots: int = 3,
     ) -> "Peer":
-
         peer = cls(
             id=id,
             download_bandwidth_kbps=download_bandwidth_kbps,
@@ -127,6 +131,9 @@ class Peer:
         return len(self.missing_chunk_ids(all_chunks)) == 0
 
     def can_start_download(self, chunk_id: int) -> bool:
+        """
+        Kiểm tra peer hiện tại có thể bắt đầu tải chunk này hay không.
+        """
 
         if not self.is_online:
             return False
@@ -144,18 +151,13 @@ class Peer:
 
     def can_upload_to(self, downloader: "Peer", chunk_id: int) -> bool:
         """
-        Kiểm tra peer hiện tại có thể upload chunk cho downloader hay không.
-
-        Điều kiện:
-            - Peer hiện tại đang online
-            - Downloader đang online
-            - Không upload cho chính mình
-            - Peer hiện tại có chunk cần upload
-            - Peer hiện tại còn upload slot
-            - Peer hiện tại chưa đang upload cho downloader đó
+        Kiểm tra peer hiện tại có thể upload chunk cho downloader không.
         """
 
-        if not self.is_online or not downloader.is_online:
+        if not self.is_online:
+            return False
+
+        if not downloader.is_online:
             return False
 
         if self.id == downloader.id:
@@ -174,12 +176,7 @@ class Peer:
 
     def can_download_from(self, source_peer: "Peer", chunk_id: int) -> bool:
         """
-        Kiểm tra peer hiện tại có thể tải chunk từ source_peer hay không.
-
-        Cần đồng thời thỏa:
-            - Downloader còn download slot
-            - Uploader còn upload slot
-            - Uploader có chunk
+        Downloader có thể tải chunk từ source_peer hay không.
         """
 
         return (
@@ -193,14 +190,13 @@ class Peer:
         chunk_id: int,
     ) -> None:
         """
-        Bắt đầu một phiên download.
+        Bắt đầu phiên download.
 
-        Hàm này chỉ đăng ký trạng thái:
-            - self đang download chunk_id từ source_peer
-            - source_peer đang upload chunk_id cho self
+        Hàm này chỉ khóa slot:
+            - downloader mất 1 download slot
+            - source_peer mất 1 upload slot
 
-        Chưa thêm chunk vào self ở bước này.
-        Chunk chỉ được thêm khi gọi finish_download_from().
+        Chưa thêm chunk vào downloader.
         """
 
         if not self.can_download_from(source_peer, chunk_id):
@@ -221,14 +217,14 @@ class Peer:
         success: bool = True,
     ) -> None:
         """
-        Kết thúc một phiên download.
+        Kết thúc phiên download.
 
         Nếu success = True:
-            - Peer nhận chunk từ source_peer
+            - downloader nhận chunk
 
         Dù thành công hay thất bại:
-            - Giải phóng download slot của peer hiện tại
-            - Giải phóng upload slot của source_peer
+            - giải phóng download slot
+            - giải phóng upload slot
         """
 
         actual_source_id = self.active_downloads.get(chunk_id)
@@ -267,10 +263,6 @@ class Peer:
         source_peer: "Peer",
         chunk_id: int,
     ) -> None:
-        """
-        Hủy phiên download đang chạy.
-        Dùng khi mô phỏng lỗi mạng, peer offline, timeout.
-        """
         self.finish_download_from(
             source_peer=source_peer,
             chunk_id=chunk_id,
@@ -285,15 +277,10 @@ class Peer:
         """
         Ước lượng thời gian tải chunk.
 
-        Công thức:
-            effective_bandwidth = min(download_bandwidth của downloader,
-                                      upload_bandwidth của uploader)
-
-            transfer_time = chunk_size / effective_bandwidth
-
-            total_time = transfer_time + latency
-
-        Đơn vị trả về: giây
+        effective_bandwidth = min(
+            downloader.download_bandwidth,
+            uploader.upload_bandwidth
+        )
         """
 
         effective_bandwidth = min(
@@ -309,165 +296,7 @@ class Peer:
 
         return transfer_time_seconds + latency_seconds
 
-    def download_chunk_from(
-        self,
-        source_peer: "Peer",
-        chunk_id: int,
-    ) -> float:
-        """
-        Download đồng bộ một chunk từ source_peer.
-
-        Hàm này phù hợp để test nhanh.
-
-        Trong mô phỏng SimPy sau này, nên dùng 3 bước:
-            1. start_download_from()
-            2. env.timeout(download_time)
-            3. finish_download_from()
-        """
-
-        chunk = source_peer.get_chunk(chunk_id)
-
-        if chunk is None:
-            raise RuntimeError(
-                f"Source Peer {source_peer.id} does not have chunk {chunk_id}"
-            )
-
-        download_time = self.estimate_download_time(
-            source_peer=source_peer,
-            chunk=chunk,
-        )
-
-        self.start_download_from(
-            source_peer=source_peer,
-            chunk_id=chunk_id,
-        )
-
-        self.finish_download_from(
-            source_peer=source_peer,
-            chunk_id=chunk_id,
-            success=True,
-        )
-
-        return download_time
-
-    def choose_random_missing_chunk(
-        self,
-        all_chunks: Iterable[Chunk],
-    ) -> Optional[int]:
-        """
-        Chiến lược Random First:
-        chọn ngẫu nhiên một chunk còn thiếu.
-        """
-
-        missing_chunks = list(self.missing_chunk_ids(all_chunks))
-
-        if not missing_chunks:
-            return None
-
-        return random.choice(missing_chunks)
-
-    def choose_rarest_missing_chunk(
-        self,
-        all_chunks: Iterable[Chunk],
-        peers: Iterable["Peer"],
-        require_available_source: bool = True,
-    ) -> Optional[int]:
-        """
-        Chiến lược Rarest First:
-        chọn chunk hiếm nhất trong các chunk peer hiện tại còn thiếu.
-
-        Nếu require_available_source = True:
-            - Chỉ tính những source peer còn upload slot.
-            - Nghĩa là chunk được chọn phải đang có thể tải được ngay.
-
-        Nếu require_available_source = False:
-            - Tính theo toàn mạng, không quan tâm peer nguồn đang bận hay rảnh.
-        """
-
-        peer_list = list(peers)
-
-        if require_available_source and not self.has_free_download_slot():
-            return None
-
-        missing_chunks = self.missing_chunk_ids(all_chunks)
-
-        if not missing_chunks:
-            return None
-
-        availability: dict[int, int] = {}
-
-        for chunk_id in missing_chunks:
-            count = 0
-
-            for peer in peer_list:
-                if peer.id == self.id:
-                    continue
-
-                if not peer.has_chunk(chunk_id):
-                    continue
-
-                if require_available_source and not peer.has_free_upload_slot():
-                    continue
-
-                count += 1
-
-            if count > 0:
-                availability[chunk_id] = count
-
-        if not availability:
-            return None
-
-        minimum_count = min(availability.values())
-
-        rarest_chunks = [
-            chunk_id
-            for chunk_id, count in availability.items()
-            if count == minimum_count
-        ]
-
-        return random.choice(rarest_chunks)
-
-    def find_source_peer(
-        self,
-        peers: Iterable["Peer"],
-        chunk_id: int,
-        require_free_upload_slot: bool = True,
-    ) -> Optional["Peer"]:
-        """
-        Tìm một peer khác có thể cung cấp chunk_id.
-
-        Nếu require_free_upload_slot = True:
-            - Chỉ chọn peer đang còn upload slot.
-            - Đây là lựa chọn nên dùng trong mô phỏng thực tế.
-        """
-
-        if not self.can_start_download(chunk_id):
-            return None
-
-        candidates: list[Peer] = []
-
-        for peer in peers:
-            if peer.id == self.id:
-                continue
-
-            if not peer.has_chunk(chunk_id):
-                continue
-
-            if require_free_upload_slot and not peer.can_upload_to(self, chunk_id):
-                continue
-
-            candidates.append(peer)
-
-        if not candidates:
-            return None
-
-        return random.choice(candidates)
-
     def to_dict(self, all_chunks: Iterable[Chunk]) -> dict:
-        """
-        Chuyển Peer thành dictionary để debug hoặc trả API.
-        """
-
         all_chunks = list(all_chunks)
 
         return {
