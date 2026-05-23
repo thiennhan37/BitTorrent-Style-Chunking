@@ -108,3 +108,28 @@ class Peer:
             "activeDownloads": dict(self.active_downloads),
             "activeUploads": dict(self.active_uploads),
         }
+
+@dataclass(slots=True)
+class TransferRecord:
+    transfer_id: int
+    source_peer: int
+    destination_peer: int
+    chunk_id: int
+    start_time: float
+    end_time: float
+    duration: float
+    bandwidth_kbps: float
+    latency_ms: float
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "transferId": self.transfer_id,
+            "sourcePeer": self.source_peer,
+            "destinationPeer": self.destination_peer,
+            "chunkId": self.chunk_id,
+            "startTime": round(self.start_time, 6),
+            "endTime": round(self.end_time, 6),
+            "duration": round(self.duration, 6),
+            "bandwidthKbps": round(self.bandwidth_kbps, 6),
+            "latencyMs": round(self.latency_ms, 6),
+        }
