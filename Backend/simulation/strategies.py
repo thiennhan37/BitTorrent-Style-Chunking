@@ -1,30 +1,30 @@
-# from __future__ import annotations
+from __future__ import annotations
 
-# import random
-# from abc import ABC, abstractmethod
+import random
+from abc import ABC, abstractmethod
 
-# # from .models import Peer
+from .models import Peer
 
 
-# class ChunkSelectionStrategy(ABC):
-#     key = "base"
-#     display_name = "Base Strategy"
+class ChunkSelectionStrategy(ABC):
+    key = "base"
+    display_name = "Base Strategy"
 
-#     def __init__(self, rng: random.Random) -> None:
-#         self.rng = rng
+    def __init__(self, rng: random.Random) -> None:
+        self.rng = rng
 
-#     def eligible_sources(self, downloader: Peer, peers: list[Peer], chunk_id: int) -> list[Peer]:
-#         return [peer for peer in peers if peer.can_upload_to(downloader, chunk_id)]
+    def eligible_sources(self, downloader: Peer, peers: list[Peer], chunk_id: int) -> list[Peer]:
+        return [peer for peer in peers if peer.can_upload_to(downloader, chunk_id)]
 
-#     def select_source(self, downloader: Peer, peers: list[Peer], chunk_id: int) -> Peer | None:
-#         sources = self.eligible_sources(downloader, peers, chunk_id)
-#         if not sources:
-#             return None
-#         return self.rng.choice(sources)
+    def select_source(self, downloader: Peer, peers: list[Peer], chunk_id: int) -> Peer | None:
+        sources = self.eligible_sources(downloader, peers, chunk_id)
+        if not sources:
+            return None
+        return self.rng.choice(sources)
 
-#     @abstractmethod
-#     def select_chunk(self, downloader: Peer, peers: list[Peer], total_chunks: int) -> int | None:
-#         raise NotImplementedError
+    @abstractmethod
+    def select_chunk(self, downloader: Peer, peers: list[Peer], total_chunks: int) -> int | None:
+        raise NotImplementedError
 
 
 # class RandomFirstStrategy(ChunkSelectionStrategy):
