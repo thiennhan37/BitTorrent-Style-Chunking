@@ -27,25 +27,25 @@ class ChunkSelectionStrategy(ABC):
         raise NotImplementedError
 
 
-# class RandomFirstStrategy(ChunkSelectionStrategy):
-#     key = "randomFirst"
-#     display_name = "Random-First"
+class RandomFirstStrategy(ChunkSelectionStrategy):
+    key = "randomFirst"
+    display_name = "Random-First"
 
-#     def select_chunk(self, downloader: Peer, peers: list[Peer], total_chunks: int) -> int | None:
-#         # kiểm tra peer có rảnh để tải không
-#         if not downloader.has_free_download_slot():
-#             return None
+    def select_chunk(self, downloader: Peer, peers: list[Peer], total_chunks: int) -> int | None:
+        # kiểm tra peer có rảnh để tải không
+        if not downloader.has_free_download_slot():
+            return None
 
-#         # Lấy danh sách các chunk mà peer chưa có và có thể bắt đầu tải
-#         candidates = [
-#             chunk_id
-#             for chunk_id in downloader.missing_chunks(total_chunks)
-#             if downloader.can_start_download(chunk_id) 
-#                 and self.eligible_sources(downloader, peers, chunk_id)
-#         ]
-#         if not candidates:
-#             return None
-#         return self.rng.choice(candidates)
+        # Lấy danh sách các chunk mà peer chưa có và có thể bắt đầu tải
+        candidates = [
+            chunk_id
+            for chunk_id in downloader.missing_chunks(total_chunks)
+            if downloader.can_start_download(chunk_id) 
+                and self.eligible_sources(downloader, peers, chunk_id)
+        ]
+        if not candidates:
+            return None
+        return self.rng.choice(candidates)
 
 
 # class RarestFirstStrategy(ChunkSelectionStrategy):
