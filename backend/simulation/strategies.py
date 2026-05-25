@@ -48,31 +48,31 @@ class RandomFirstStrategy(ChunkSelectionStrategy):
         return self.rng.choice(candidates)
 
 
-# class RarestFirstStrategy(ChunkSelectionStrategy):
-#     key = "rarestFirst"
-#     display_name = "Rarest-First"
+class RarestFirstStrategy(ChunkSelectionStrategy):
+    key = "rarestFirst"
+    display_name = "Rarest-First"
 
-#     def select_chunk(self, downloader: Peer, peers: list[Peer], total_chunks: int) -> int | None:
-#         if not downloader.has_free_download_slot():
-#             return None
+    def select_chunk(self, downloader: Peer, peers: list[Peer], total_chunks: int) -> int | None:
+        if not downloader.has_free_download_slot():
+            return None
 
-#         availability: dict[int, int] = {}
-#         for chunk_id in downloader.missing_chunks(total_chunks):
-#             if not downloader.can_start_download(chunk_id):
-#                 continue
-#             if not self.eligible_sources(downloader, peers, chunk_id):
-#                 continue
-#             copies = sum(1 for peer in peers if peer.id != downloader.id
-#                          and peer.can_upload_to(downloader, chunk_id) and peer.has_chunk(chunk_id))
-#             if copies > 0:
-#                 availability[chunk_id] = copies
+        availability: dict[int, int] = {}
+        for chunk_id in downloader.missing_chunks(total_chunks):
+            if not downloader.can_start_download(chunk_id):
+                continue
+            if not self.eligible_sources(downloader, peers, chunk_id):
+                continue
+            copies = sum(1 for peer in peers if peer.id != downloader.id
+                         and peer.can_upload_to(downloader, chunk_id) and peer.has_chunk(chunk_id))
+            if copies > 0:
+                availability[chunk_id] = copies
 
-#         if not availability:
-#             return None
+        if not availability:
+            return None
 
-#         rarest_count = min(availability.values())
-#         rarest_chunks = [chunk_id for chunk_id, count in availability.items() if count == rarest_count]
-#         return self.rng.choice(rarest_chunks)
+        rarest_count = min(availability.values())
+        rarest_chunks = [chunk_id for chunk_id, count in availability.items() if count == rarest_count]
+        return self.rng.choice(rarest_chunks)
 
 
 # def normalize_strategy_key(strategy: str) -> str:
