@@ -75,25 +75,25 @@ class RarestFirstStrategy(ChunkSelectionStrategy):
         return self.rng.choice(rarest_chunks)
 
 
-# def normalize_strategy_key(strategy: str) -> str:
-#     normalized = (strategy or "").replace("-", "").replace("_", "").lower()
-#     mapping = {
-#         "random": "randomFirst",
-#         "randomfirst": "randomFirst",
-#         "randomfirststrategy": "randomFirst",
-#         "rarest": "rarestFirst",
-#         "rarestfirst": "rarestFirst",
-#         "rarestfirststrategy": "rarestFirst",
-#     }
-#     if normalized not in mapping:
-#         raise ValueError("strategy must be one of: randomFirst, rarestFirst")
-#     return mapping[normalized]
+def normalize_strategy_key(strategy: str) -> str:
+    normalized = (strategy or "").replace("-", "").replace("_", "").lower()
+    mapping = {
+        "random": "randomFirst",
+        "randomfirst": "randomFirst",
+        "randomfirststrategy": "randomFirst",
+        "rarest": "rarestFirst",
+        "rarestfirst": "rarestFirst",
+        "rarestfirststrategy": "rarestFirst",
+    }
+    if normalized not in mapping:
+        raise ValueError("strategy must be one of: randomFirst, rarestFirst")
+    return mapping[normalized]
 
 
-# def build_strategy(strategy: str, rng: random.Random) -> ChunkSelectionStrategy:
-#     key = normalize_strategy_key(strategy)
-#     if key == RandomFirstStrategy.key:
-#         return RandomFirstStrategy(rng)
-#     if key == RarestFirstStrategy.key:
-#         return RarestFirstStrategy(rng)
-#     raise ValueError(f"Unsupported strategy: {strategy}")
+def build_strategy(strategy: str, rng: random.Random) -> ChunkSelectionStrategy:
+    key = normalize_strategy_key(strategy)
+    if key == RandomFirstStrategy.key:
+        return RandomFirstStrategy(rng)
+    if key == RarestFirstStrategy.key:
+        return RarestFirstStrategy(rng)
+    raise ValueError(f"Unsupported strategy: {strategy}")
