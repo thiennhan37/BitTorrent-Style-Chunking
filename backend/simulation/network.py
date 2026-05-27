@@ -12,6 +12,8 @@ class NetworkModel:
 
     def _link_unit(self, source: Peer, destination: Peer, salt: int) -> float:
 
+        # nhân với các số prime để giảm xung đột 
+        # kĩ thuật hash giữ lại 32 bit cuối
         value = (
             (self.config.seed + 1) * 1_000_003
             + (source.id + 1) * 91_193
@@ -39,7 +41,7 @@ class NetworkModel:
     
     def link_latency_factor(self, source: Peer, destination: Peer) -> float:
         # Directed peer links vary between 75% and 175% of the configured base.
-        return 0.75 + self._link_unit(source, destination, salt=2)
+        return 1 + self._link_unit(source, destination, salt=2)
 
     def shared_upload_bandwidth(self, source: Peer) -> float:
         # Upload cua mot peer duoc chia deu cho tat ca upload dang active.
