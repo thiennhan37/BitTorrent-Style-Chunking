@@ -7,8 +7,8 @@ try:
 except ModuleNotFoundError:  # pragma: no cover
     CORS = None
 
-# from simulation.config import SimulationConfig
-# from simulation.service import compare_strategies, recommend_churn_candidate, run_single_simulation
+from simulation.config import SimulationConfig
+from simulation.service import compare_strategies, recommend_churn_candidate, run_single_simulation
 
 
 def create_app() -> Flask:
@@ -27,6 +27,37 @@ def create_app() -> Flask:
     def health():
         return jsonify({"status": "ok"})
 
+    @app.get("/api/config")
+    def get_config():
+        return jsonify(SimulationConfig().to_dict())
+
+    @app.post("/api/simulate")
+    def simulate():
+        payload = request.get_json(silent=True) or {}
+        # print("payload", payload)
+        try:
+            result = run_single_simulation(payload)
+            return jsonify(result)
+        except Exception as exc:  # keep API friendly for frontend demos
+            return jsonify({"error": str(exc)}), 400
+
+    @app.post("/api/simulate/compare")
+    def compare():
+        payload = request.get_json(silent=True) or {}
+        try:
+            result = compare_strategies(payload)
+            return jsonify(result)
+        except Exception as exc:
+            return jsonify({"error": str(exc)}), 400
+
+    @app.post("/api/churn/recommend")
+    def recommend_churn():
+        payload = request.get_json(silent=True) or {}
+        try:
+            result = recommend_churn_candidate(payload)
+            return jsonify(result)
+        except Exception as exc:
+            return jsonify({"error": str(exc)}), 400
 
     return app
 
