@@ -19,8 +19,11 @@ export default function ChurnPanel({
         </div>
         {!!churnEvents?.length && (
           <div className="churn-badge-list">
-            {churnEvents.map((event) => (
-              <span key={`churn-${event.peerId}`} className={`churn-badge ${event.online ? 'online' : 'offline'}`}>
+            {churnEvents.map((event, index) => (
+              <span
+                key={`churn-${event.peerId}-${event.time}-${index}`}
+                className={`churn-badge ${event.online ? 'online' : 'offline'}`}
+              >
                 Peer {event.peerId} {event.online ? 'online' : 'offline'} at {event.time}s
               </span>
             ))}
@@ -51,7 +54,7 @@ export default function ChurnPanel({
             <span>Random: {recommendation.randomCompleted ? `${recommendation.randomTotalTime}s` : 'incomplete'}</span>
             <span>Rarest: {recommendation.rarestCompleted ? `${recommendation.rarestTotalTime}s` : 'incomplete'}</span>
             <span>Rare chunks: {rareChunks.length ? rareChunks.slice(0, 8).join(', ') : 'none'}</span>
-            <span>Tip: click peers on graph to toggle offline → online → baseline</span>
+            <span>Tip: click peers on graph to add offline/online events at the selected time</span>
           </div>
         </div>
       )}

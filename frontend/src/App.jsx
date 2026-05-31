@@ -9,6 +9,16 @@ import TransferLog from './components/TransferLog.jsx';
 import PeerNetworkGraph from './components/PeerNetworkGraph.jsx';
 import TimelineReplay from './components/TimelineReplay.jsx';
 
+function sortChurnEvents(events = []) {
+  return [...events].sort((a, b) => {
+    const timeDiff = Number(a.time) - Number(b.time);
+    if (timeDiff !== 0) return timeDiff;
+    const peerDiff = Number(a.peerId) - Number(b.peerId);
+    if (peerDiff !== 0) return peerDiff;
+    return Number(a.online) - Number(b.online);
+  });
+}
+
 export default function App() {
   const [config, setConfig] = useState(null);
   const [form, setForm] = useState({
@@ -25,7 +35,7 @@ export default function App() {
   const [baselineCompareResult, setBaselineCompareResult] = useState(null);
   const [singleResult, setSingleResult] = useState(null);
   const [churnRecommendation, setChurnRecommendation] = useState(null);
-  const [churnOverrides, setChurnOverrides] = useState({});
+  const [churnOverrides, setChurnOverrides] = useState([]);
   const [selectedView, setSelectedView] = useState('rarestFirst');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -73,15 +83,7 @@ export default function App() {
     return timeline[safeIndex] || null;
   }, [activeResult, timelineIndex]);
 
-  const activeChurnEvents = useMemo(
-    () =>
-      Object.entries(churnOverrides).map(([peerId, event]) => ({
-        time: event.time,
-        peerId: Number(peerId),
-        online: event.online,
-      })),
-    [churnOverrides],
-  );  
+  const activeChurnEvents = useMemo(() => sortChurnEvents(churnOverrides), [churnOverrides]);
 
   useEffect(() => {
     setChurnRecommendation(null);
@@ -97,7 +99,7 @@ export default function App() {
       setCompareResult(result);
       setBaselineCompareResult(result);
       setChurnRecommendation(null);
-      setChurnOverrides({});
+      setChurnOverrides([]);
       setSelectedView(result.winner === 'randomFirst' ? 'randomFirst' : 'rarestFirst');
     } catch (err) {
       setError(err.message);
@@ -112,7 +114,7 @@ export default function App() {
     setCompareResult(null);
     setBaselineCompareResult(null);
     setChurnRecommendation(null);
-    setChurnOverrides({});
+    setChurnOverrides([]);
     setTimelineIndex(0);
     try {
       const result = await simulate({ ...form, strategy });
@@ -128,12 +130,6 @@ export default function App() {
   async function handleRecommendChurn() {
     const baseline = baselineCompareResult || compareResult;
     if (!baseline) return;
-
-    const churnEvents = Object.entries(churnOverrides).map(([peerId, event]) => ({
-      time: event.time,
-      peerId: Number(peerId),
-      online: event.online,
-    }));
 
     setLoading(true);
     setError('');
@@ -156,11 +152,7 @@ export default function App() {
     const baseline = baselineCompareResult || compareResult;
     if (!baseline || activeSnapshotTime == null) return;
 
-    const churnEvents = Object.entries(nextOverrides).map(([peerId, event]) => ({
-      time: event.time,
-      peerId: Number(peerId),
-      online: event.online,
-    }));
+    const churnEvents = sortChurnEvents(nextOverrides);
 
     setLoading(true);
     setError('');
@@ -171,7 +163,7 @@ export default function App() {
         churnEvents,
       });
       setCompareResult(result);
-      setChurnOverrides(nextOverrides);
+      setChurnOverrides(churnEvents);
       setChurnRecommendation(null);
       setSelectedView(result.winner === 'rarestFirst' ? 'rarestFirst' : 'randomFirst');
       setTimelineIndex(0);
@@ -183,28 +175,33 @@ export default function App() {
   }
 
   async function handleTogglePeer(peerId) {
-    const nextOverrides = { ...churnOverrides };
-    const current = nextOverrides[peerId];
-    if (current?.online === false) {
-      nextOverrides[peerId] = { online: true, time: activeSnapshotTime ?? 0 };
-    } else if (current?.online === true) {
-      delete nextOverrides[peerId];
-    } else {
-      nextOverrides[peerId] = { online: false, time: activeSnapshotTime ?? 0 };
-    }
-    await updateChurnScenario(nextOverrides);
+    const eventTime = activeSnapshotTime ?? 0;
+    const peer = activeSnapshot?.peers?.find((item) => Number(item.peerId) === Number(peerId));
+    const latestPeerChurn = activeChurnEvents
+      .filter((event) => Number(event.peerId) === Number(peerId) && Number(event.time) <= Number(eventTime))
+      .at(-1);
+    const currentlyOnline = latestPeerChurn?.online ?? peer?.online ?? true;
+    const nextEvent = {
+      time: eventTime,
+      peerId: Number(peerId),
+      online: !currentlyOnline,
+    };
+    await updateChurnScenario([...churnOverrides, nextEvent]);
   }
 
   async function handleApplyRecommendation(peerId) {
     if (peerId == null) return;
-    await updateChurnScenario({ ...churnOverrides, [peerId]: { online: false, time: activeSnapshotTime ?? 0 } });
+    await updateChurnScenario([
+      ...churnOverrides,
+      { peerId: Number(peerId), online: false, time: activeSnapshotTime ?? 0 },
+    ]);
   }
 
   function handleResetChurn() {
     if (!baselineCompareResult) return;
     setCompareResult(baselineCompareResult);
     setChurnRecommendation(null);
-    setChurnOverrides({});
+    setChurnOverrides([]);
     setTimelineIndex(0);
   }
 
