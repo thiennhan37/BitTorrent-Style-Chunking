@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from simulation.config import SimulationConfig
 from simulation.initial_state import generate_initial_state
-from simulation.service import compare_strategies, recommend_churn_candidate
+from simulation.service import build_statistics_charts, compare_strategies, recommend_churn_candidate
 from simulation.simulator import BitTorrentSimulator
 from simulation.strategies import RandomFirstStrategy, RarestFirstStrategy
 import random
@@ -293,3 +293,29 @@ def test_churn_recommendation_respects_existing_churn_events():
     trial_peer_ids = {trial["peerId"] for trial in result["trials"]}
     assert 0 not in trial_peer_ids
     assert len(result["trials"]) == 9
+
+
+def test_statistics_charts_returns_three_chart_payloads():
+    result = build_statistics_charts(
+        {
+            "fileSizeMb": 1,
+            "chunkSizeKb": 256,
+            "peerCount": 4,
+            "seedStart": 1,
+            "seedEnd": 2,
+            "downloadBandwidthKbps": 512,
+            "uploadBandwidthKbps": 512,
+            "neighborsPerPeer": 2,
+        }
+    )
+
+    assert len(result["charts"]["seedComparison"]) == 2
+    assert {item["topology"] for item in result["charts"]["topologyComparison"]} == {
+        "fullMesh",
+        "randomK",
+        "ring",
+        "star",
+        "smallWorld",
+    }
+    assert len(result["charts"]["rareChunkProgress"]) == 4
+    assert all(series["points"][0]["completion"] == 0 for series in result["charts"]["rareChunkProgress"])

@@ -36,3 +36,10 @@ export function recommendChurn(payload) {
     body: JSON.stringify(payload),
   });
 }
+
+export function buildStatisticsCharts(payload) {
+  return request('/api/statistics/charts', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}

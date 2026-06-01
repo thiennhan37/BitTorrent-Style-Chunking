@@ -11,7 +11,7 @@ function polarToCartesian(cx, cy, radius, angleDeg) {
 export default function NeighborGraph({ graph = null, peerCount = 10, peers = [] }) {
   const size = 460;
   const center = size / 2;
-  const radius = 170;
+  const radius = 168;
   const positions = Array.from({ length: peerCount }, (_, peerId) => {
     const angle = -90 + (360 * peerId) / peerCount;
     return { peerId, ...polarToCartesian(center, center, radius, angle) };
@@ -31,7 +31,7 @@ export default function NeighborGraph({ graph = null, peerCount = 10, peers = []
           </p>
         </div>
       </div>
-      <svg className="network-svg" viewBox={`0 0 ${size} ${size}`} role="img" aria-label="neighbor topology graph">
+      <svg className="neighbor-svg" viewBox={`0 0 ${size} ${size}`} role="img" aria-label="neighbor topology graph">
         {edges.map((edge) => {
           const source = positionByPeer.get(edge.source);
           const target = positionByPeer.get(edge.target);
@@ -53,7 +53,7 @@ export default function NeighborGraph({ graph = null, peerCount = 10, peers = []
           return (
             <g key={node.peerId} className={`node ${online ? '' : 'offline'}`}>
               <circle cx={node.x} cy={node.y} r="22" />
-              <text x={node.x} y={node.y + 5}>P{node.peerId}</text>
+              <text x={node.x} y={node.y + 5} fontSize="13">P{node.peerId}</text>
             </g>
           );
         })}

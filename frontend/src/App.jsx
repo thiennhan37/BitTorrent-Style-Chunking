@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { compareStrategies, getConfig, recommendChurn, simulate } from './api/client.js';
+import { buildStatisticsCharts, compareStrategies, getConfig, recommendChurn, simulate } from './api/client.js';
 import ChurnPanel from './components/ChurnPanel.jsx';
 import ConfigPanel from './components/ConfigPanel.jsx';
 import MetricsPanel from './components/MetricsPanel.jsx';
@@ -9,6 +9,7 @@ import TransferLog from './components/TransferLog.jsx';
 import PeerNetworkGraph from './components/PeerNetworkGraph.jsx';
 import NeighborGraph from './components/NeighborGraph.jsx';
 import TimelineReplay from './components/TimelineReplay.jsx';
+import StatisticsCharts from './components/StatisticsCharts.jsx';
 
 function sortChurnEvents(events = []) {
   return [...events].sort((a, b) => {
@@ -40,10 +41,12 @@ export default function App() {
   const [compareResult, setCompareResult] = useState(null);
   const [baselineCompareResult, setBaselineCompareResult] = useState(null);
   const [singleResult, setSingleResult] = useState(null);
+  const [statisticsResult, setStatisticsResult] = useState(null);
   const [churnRecommendation, setChurnRecommendation] = useState(null);
   const [churnOverrides, setChurnOverrides] = useState([]);
   const [selectedView, setSelectedView] = useState('rarestFirst');
   const [loading, setLoading] = useState(false);
+  const [statisticsLoading, setStatisticsLoading] = useState(false);
   const [error, setError] = useState('');
   const [timelineIndex, setTimelineIndex] = useState(0);
 
@@ -201,6 +204,24 @@ export default function App() {
     await updateChurnScenario([...churnOverrides, nextEvent]);
   }
 
+  async function handleBuildStatistics(options) {
+    setStatisticsLoading(true);
+    setError('');
+    try {
+      const result = await buildStatisticsCharts({
+        ...form,
+        ...options,
+        rareThreshold: 3,
+        completionStep: 5,
+      });
+      setStatisticsResult(result);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setStatisticsLoading(false);
+    }
+  }
+
   async function handleApplyRecommendation(peerId) {
     if (peerId == null) return;
     await updateChurnScenario([
@@ -242,6 +263,13 @@ export default function App() {
 
       {error && <div className="alert">{error}</div>}
 
+      <StatisticsCharts
+        form={form}
+        result={statisticsResult}
+        loading={statisticsLoading}
+        onBuild={handleBuildStatistics}
+      />
+
       {compareResult && (
         <StrategyComparison result={compareResult} selectedView={selectedView} setSelectedView={setSelectedView} />
       )}
@@ -261,14 +289,14 @@ export default function App() {
       {activeResult && (
         <>
           <MetricsPanel result={activeResult} compareResult={compareResult} />
-          <section className="grid-two">
-            <PeerProgressTable peers={activeResult.finalPeers} totalChunks={activeResult.config.totalChunks} />
-            <div className="graph-stack">
-              <NeighborGraph
-                graph={activeResult.neighborGraph}
-                peerCount={activeResult.config.peer_count || activeResult.config.peerCount || 10}
-                peers={activeSnapshot?.peers || activeResult.finalPeers}
-              />
+          <section className="peer-visualization">
+            <NeighborGraph
+              graph={activeResult.neighborGraph}
+              peerCount={activeResult.config.peer_count || activeResult.config.peerCount || 10}
+              peers={activeSnapshot?.peers || activeResult.finalPeers}
+            />
+            <div className="grid-two-equal">
+              <PeerProgressTable peers={activeResult.finalPeers} totalChunks={activeResult.config.totalChunks} />
               <PeerNetworkGraph
                 logs={activeResult.logs}
                 peerCount={activeResult.config.peer_count || activeResult.config.peerCount || 10}

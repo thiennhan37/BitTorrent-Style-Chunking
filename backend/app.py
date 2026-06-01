@@ -8,7 +8,7 @@ except ModuleNotFoundError:  # pragma: no cover
     CORS = None
 
 from simulation.config import SimulationConfig
-from simulation.service import compare_strategies, recommend_churn_candidate, run_single_simulation
+from simulation.service import build_statistics_charts, compare_strategies, recommend_churn_candidate, run_single_simulation
 
 
 def create_app() -> Flask:
@@ -55,6 +55,15 @@ def create_app() -> Flask:
         payload = request.get_json(silent=True) or {}
         try:
             result = recommend_churn_candidate(payload)
+            return jsonify(result)
+        except Exception as exc:
+            return jsonify({"error": str(exc)}), 400
+
+    @app.post("/api/statistics/charts")
+    def statistics_charts():
+        payload = request.get_json(silent=True) or {}
+        try:
+            result = build_statistics_charts(payload)
             return jsonify(result)
         except Exception as exc:
             return jsonify({"error": str(exc)}), 400

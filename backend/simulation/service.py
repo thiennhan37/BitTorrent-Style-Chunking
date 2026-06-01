@@ -83,6 +83,182 @@ def compare_strategies(payload: Mapping[str, Any] | None = None) -> dict[str, An
     }
 
 
+def _strip_batch_only_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
+    excluded = {
+        "seedStart",
+        "seedEnd",
+        "seedStep",
+        "chartSeedStart",
+        "chartSeedEnd",
+        "chartSeedStep",
+        "rareThreshold",
+        "completionStep",
+    }
+    return {key: value for key, value in payload.items() if key not in excluded}
+
+
+def _seed_range_from_payload(payload: Mapping[str, Any], default_seed: int) -> list[int]:
+    seed_start = int(payload.get("seedStart", payload.get("chartSeedStart", default_seed)))
+    seed_end = int(payload.get("seedEnd", payload.get("chartSeedEnd", default_seed + 9)))
+    seed_step = max(1, int(payload.get("seedStep", payload.get("chartSeedStep", 1))))
+    if seed_end < seed_start:
+        seed_start, seed_end = seed_end, seed_start
+
+    seeds = list(range(seed_start, seed_end + 1, seed_step))
+    if len(seeds) > 50:
+        raise ValueError("seed range is limited to 50 runs per chart")
+    return seeds
+
+
+def _safe_small_world_degree(config: SimulationConfig) -> int:
+    degree = min(max(2, config.neighbors_per_peer), config.peer_count - 1)
+    if degree % 2 != 0:
+        degree -= 1
+    return max(2, degree)
+
+
+def _topology_payload(base_payload: Mapping[str, Any], topology_mode: str, config: SimulationConfig) -> dict[str, Any]:
+    payload = {**base_payload, "topologyMode": topology_mode}
+    if topology_mode == "smallWorld":
+        payload["neighborsPerPeer"] = _safe_small_world_degree(config)
+    elif topology_mode == "randomK":
+        payload["neighborsPerPeer"] = min(max(1, config.neighbors_per_peer), config.peer_count - 1)
+    return payload
+
+
+def _system_completion_percent(snapshot: Mapping[str, Any], total_chunks: int, peer_count: int) -> float:
+    owned_count = sum(len(peer.get("ownedChunks", [])) for peer in snapshot.get("peers", []))
+    return round((owned_count / max(total_chunks * peer_count, 1)) * 100, 6)
+
+
+def _rare_chunk_count(snapshot: Mapping[str, Any], total_chunks: int, threshold: int) -> int:
+    availability = {chunk_id: 0 for chunk_id in range(total_chunks)}
+    for peer in snapshot.get("peers", []):
+        if not peer.get("online", True):
+            continue
+        for chunk_id in peer.get("ownedChunks", []):
+            chunk_id = int(chunk_id)
+            if chunk_id in availability:
+                availability[chunk_id] += 1
+    return sum(1 for count in availability.values() if count <= threshold)
+
+
+def _rare_chunk_series(result: Mapping[str, Any], threshold: int, completion_step: int) -> list[dict[str, Any]]:
+    config = result.get("config", {})
+    total_chunks = int(config.get("totalChunks") or config.get("total_chunks") or 0)
+    peer_count = int(config.get("peer_count") or config.get("peerCount") or 0)
+    timeline = result.get("progressTimeline", [])
+    if not total_chunks or not peer_count or not timeline:
+        return []
+
+    snapshots = [
+        {
+            "completion": _system_completion_percent(snapshot, total_chunks, peer_count),
+            "rareChunks": _rare_chunk_count(snapshot, total_chunks, threshold),
+            "time": snapshot.get("time", 0),
+        }
+        for snapshot in timeline
+    ]
+
+    points: list[dict[str, Any]] = []
+    index = 0
+    for target in range(0, 101, completion_step):
+        while index + 1 < len(snapshots) and snapshots[index]["completion"] < target:
+            index += 1
+        snapshot = snapshots[index]
+        points.append(
+            {
+                "completion": target,
+                "actualCompletion": round(snapshot["completion"], 3),
+                "rareChunks": snapshot["rareChunks"],
+                "time": snapshot["time"],
+            }
+        )
+    return points
+
+
+def build_statistics_charts(payload: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    payload = dict(payload or {})
+    base_payload = _strip_batch_only_payload(payload)
+    config = SimulationConfig.from_payload(base_payload)
+    seeds = _seed_range_from_payload(payload, config.seed)
+    rare_threshold = max(0, int(payload.get("rareThreshold", 3)))
+    completion_step = max(1, min(25, int(payload.get("completionStep", 5))))
+
+    seed_series: list[dict[str, Any]] = []
+    for seed in seeds:
+        result = compare_strategies({**base_payload, "seed": seed})
+        seed_series.append(
+            {
+                "seed": seed,
+                "randomFirst": {
+                    "time": result["randomFirst"]["totalTime"],
+                    "completed": result["randomFirst"]["completed"],
+                },
+                "rarestFirst": {
+                    "time": result["rarestFirst"]["totalTime"],
+                    "completed": result["rarestFirst"]["completed"],
+                },
+                "winner": result["winner"],
+            }
+        )
+
+    topology_modes = ["fullMesh", "randomK", "ring", "star", "smallWorld"]
+    topology_labels = {
+        "fullMesh": "Full mesh",
+        "randomK": "Random k",
+        "ring": "Ring",
+        "star": "Hub",
+        "smallWorld": "Small world",
+    }
+    topology_bars: list[dict[str, Any]] = []
+    for topology_mode in topology_modes:
+        result = compare_strategies(_topology_payload(base_payload, topology_mode, config))
+        topology_bars.append(
+            {
+                "topology": topology_mode,
+                "label": topology_labels[topology_mode],
+                "randomFirst": {
+                    "time": result["randomFirst"]["totalTime"],
+                    "completed": result["randomFirst"]["completed"],
+                },
+                "rarestFirst": {
+                    "time": result["rarestFirst"]["totalTime"],
+                    "completed": result["rarestFirst"]["completed"],
+                },
+            }
+        )
+
+    distribution_modes = [
+        ("balancedRandom", "Random peer"),
+        ("singleSeeder", "Peer 0"),
+    ]
+    rare_series: list[dict[str, Any]] = []
+    for distribution_mode, distribution_label in distribution_modes:
+        result = compare_strategies({**base_payload, "initialDistributionMode": distribution_mode})
+        for strategy_key in ("randomFirst", "rarestFirst"):
+            rare_series.append(
+                {
+                    "strategy": strategy_key,
+                    "distributionMode": distribution_mode,
+                    "label": f"{result[strategy_key]['strategyName']} - {distribution_label}",
+                    "points": _rare_chunk_series(result[strategy_key], rare_threshold, completion_step),
+                }
+            )
+
+    return {
+        "seedRange": {"start": seeds[0], "end": seeds[-1], "step": seeds[1] - seeds[0] if len(seeds) > 1 else 1},
+        "rareThreshold": rare_threshold,
+        "completionStep": completion_step,
+        "config": config.to_dict(),
+        "charts": {
+            "seedComparison": seed_series,
+            "topologyComparison": topology_bars,
+            "rareChunkProgress": rare_series,
+        },
+    }
+
+
 def _snapshot_at_or_before(timeline: list[dict[str, Any]], time_value: float) -> dict[str, Any] | None:
     snapshot = None
     for item in timeline:

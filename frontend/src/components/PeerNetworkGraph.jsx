@@ -35,7 +35,7 @@ export default function PeerNetworkGraph({
   const peerState = useMemo(() => new Map(peers.map((peer) => [peer.peerId, peer])), [peers]);
 
   return (
-    <section className="card">
+    <section className="card peer-network-card">
       <h2>Peer network graph</h2>
       <p className="muted">
         Showing {recentTransfers.length}/{completedTransfers.length} completed transfers as arrows.
@@ -48,7 +48,14 @@ export default function PeerNetworkGraph({
         />
         Show all completed transfers
       </label>
-      <svg className="network-svg" viewBox={`0 0 ${size} ${size}`} role="img" aria-label="peer network graph">
+      <div className="network-graph-body">
+      <svg
+        className="network-svg"
+        viewBox={`0 0 ${size} ${size}`}
+        preserveAspectRatio="xMidYMid meet"
+        role="img"
+        aria-label="peer network graph"
+      >
         <defs>
           <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
             <path d="M0,0 L0,6 L8,3 z" />
@@ -95,6 +102,7 @@ export default function PeerNetworkGraph({
           );
         })}
       </svg>
+      </div>
     </section>
   );
 }
