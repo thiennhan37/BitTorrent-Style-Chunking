@@ -14,6 +14,7 @@ class Peer:
     latency_ms: float = 50.0
     max_download_slots: int = 1
     max_upload_slots: int = 3
+    neighbors: set[int] | None = None
     # can unique chunk_id cho moi transfer, de tranh tinh huong 
     # 2 transfer cung chunk tu 2 source khac nhau  
     active_downloads: dict[int, int] = field(default_factory=dict)  # chunk_id -> source_peer_id
@@ -66,6 +67,7 @@ class Peer:
             self.online
             and downloader.online
             and self.id != downloader.id
+            and (self.neighbors is None or downloader.id in self.neighbors)
             and self.has_chunk(chunk_id)
             and self.has_free_upload_slot()
             and downloader.id not in self.active_uploads
@@ -107,7 +109,9 @@ class Peer:
             "completion": self.completion_percentage(total_chunks),
             "activeDownloads": dict(self.active_downloads),
             "activeUploads": dict(self.active_uploads),
+            "neighbors": sorted(self.neighbors) if self.neighbors is not None else None,
         }
+
 
 @dataclass(slots=True)
 class TransferRecord:

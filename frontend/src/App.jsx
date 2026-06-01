@@ -7,6 +7,7 @@ import StrategyComparison from './components/StrategyComparison.jsx';
 import PeerProgressTable from './components/PeerProgressTable.jsx';
 import TransferLog from './components/TransferLog.jsx';
 import PeerNetworkGraph from './components/PeerNetworkGraph.jsx';
+import NeighborGraph from './components/NeighborGraph.jsx';
 import TimelineReplay from './components/TimelineReplay.jsx';
 
 function sortChurnEvents(events = []) {
@@ -27,6 +28,11 @@ export default function App() {
     upload_bandwidth: 128,
     latencyMs: 50,
     initialChunkProbability: 0.3,
+    initialDistributionMode: 'balancedRandom',
+    topologyMode: 'fullMesh',
+    neighborsPerPeer: 4,
+    topologyRewireProbability: 0.15,
+    topologyAdjacency: '',
     max_download_slots: 2,
     max_upload_slots: 3,
   });
@@ -57,6 +63,12 @@ export default function App() {
             data.effectiveUploadBandwidthKbps ?? 128,
           latencyMs: data.latency_ms ?? data.latencyMs ?? 50,
           initialChunkProbability: data.initial_chunk_probability ?? data.initialChunkProbability ?? 0.3,
+          initialDistributionMode:
+            data.initial_distribution_mode ?? data.initialDistributionMode ?? 'balancedRandom',
+          topologyMode: data.topology_mode ?? data.topologyMode ?? 'fullMesh',
+          neighborsPerPeer: data.neighbors_per_peer ?? data.neighborsPerPeer ?? 4,
+          topologyRewireProbability:
+            data.topology_rewire_probability ?? data.topologyRewireProbability ?? 0.15,
           max_download_slots: data.max_download_slots ?? data.maxDownloadSlots ?? 2,
           max_upload_slots: data.max_upload_slots ?? data.maxUploadSlots ?? 3,
         }));
@@ -251,14 +263,21 @@ export default function App() {
           <MetricsPanel result={activeResult} compareResult={compareResult} />
           <section className="grid-two">
             <PeerProgressTable peers={activeResult.finalPeers} totalChunks={activeResult.config.totalChunks} />
-            <PeerNetworkGraph
-              logs={activeResult.logs}
-              peerCount={activeResult.config.peer_count || activeResult.config.peerCount || 10}
-              maxTime={activeSnapshotTime}
-              peers={activeSnapshot?.peers || activeResult.finalPeers}
-              recommendedPeerId={churnRecommendation?.peerId}
-              onPeerClick={compareResult ? handleTogglePeer : null}
-            />
+            <div className="graph-stack">
+              <NeighborGraph
+                graph={activeResult.neighborGraph}
+                peerCount={activeResult.config.peer_count || activeResult.config.peerCount || 10}
+                peers={activeSnapshot?.peers || activeResult.finalPeers}
+              />
+              <PeerNetworkGraph
+                logs={activeResult.logs}
+                peerCount={activeResult.config.peer_count || activeResult.config.peerCount || 10}
+                maxTime={activeSnapshotTime}
+                peers={activeSnapshot?.peers || activeResult.finalPeers}
+                recommendedPeerId={churnRecommendation?.peerId}
+                onPeerClick={compareResult ? handleTogglePeer : null}
+              />
+            </div>
           </section>
           <TimelineReplay
             timeline={activeResult.progressTimeline}

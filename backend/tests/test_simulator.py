@@ -37,6 +37,83 @@ def test_initial_state_is_complete_swarm_but_not_complete_peers():
     assert all(len(chunks) > 0 for chunks in state)
 
 
+def test_single_seeder_initial_state_puts_full_file_on_peer_zero():
+    config = SimulationConfig(file_size_mb=1, chunk_size_kb=256, peer_count=4, initial_distribution_mode="singleSeeder")
+    state = generate_initial_state(config)
+
+    assert set(state[0]) == set(range(config.total_chunks))
+    assert all(chunks == [] for chunks in state[1:])
+
+
+def test_ring_topology_limits_sources_to_neighbors():
+    from simulation.models import Peer
+
+    peers = [
+        Peer(id=0, owned_chunks=set(), neighbors={1}),
+        Peer(id=1, owned_chunks=set(), neighbors={0}),
+        Peer(id=2, owned_chunks={0}, neighbors=set()),
+    ]
+    strategy = RandomFirstStrategy(random.Random(5))
+
+    assert strategy.select_source(peers[0], peers, 0) is None
+
+
+def test_simulation_returns_neighbor_graph_for_frontend():
+    config = SimulationConfig(file_size_mb=1, chunk_size_kb=256, peer_count=4, topology_mode="ring")
+    result = BitTorrentSimulator(config=config, strategy="rarestFirst").run()
+
+    assert result["neighborGraph"]["mode"] == "ring"
+    assert {"source": 0, "target": 1} in result["neighborGraph"]["edges"]
+
+
+def test_small_world_zero_rewire_builds_ring_lattice():
+    from simulation.topology import build_neighbor_graph
+
+    config = SimulationConfig(
+        peer_count=8,
+        topology_mode="smallWorld",
+        neighbors_per_peer=4,
+        topology_rewire_probability=0,
+    )
+    graph = build_neighbor_graph(config)
+
+    for peer_id in range(config.peer_count):
+        assert graph[peer_id] == {
+            (peer_id - 2) % config.peer_count,
+            (peer_id - 1) % config.peer_count,
+            (peer_id + 1) % config.peer_count,
+            (peer_id + 2) % config.peer_count,
+        }
+
+
+def test_small_world_rewire_creates_shortcuts_without_changing_edge_count():
+    from simulation.topology import build_neighbor_graph
+
+    config = SimulationConfig(
+        seed=5,
+        peer_count=10,
+        topology_mode="smallWorld",
+        neighbors_per_peer=4,
+        topology_rewire_probability=1,
+    )
+    graph = build_neighbor_graph(config)
+    edges = {
+        (source, target)
+        for source, neighbors in graph.items()
+        for target in neighbors
+        if source < target
+    }
+    local_edges = {
+        tuple(sorted((source, (source + offset) % config.peer_count)))
+        for source in range(config.peer_count)
+        for offset in range(1, (config.neighbors_per_peer // 2) + 1)
+    }
+
+    assert len(edges) == config.peer_count * config.neighbors_per_peer // 2
+    assert all(source != target for source, target in edges)
+    assert edges - local_edges
+
+
 def test_single_simulation_completes_all_peers():
     config = SimulationConfig(seed=11, bandwidth_kbps=1024, latency_ms=10)
     result = BitTorrentSimulator(config=config, strategy="rarestFirst").run()

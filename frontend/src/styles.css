@@ -8,7 +8,7 @@
 
 * { box-sizing: border-box; }
 body { margin: 0; }
-button, input, select { font: inherit; }
+button, input, select, textarea { font: inherit; }
 button { cursor: pointer; }
 
 .app-shell {
@@ -54,13 +54,14 @@ button { cursor: pointer; }
   gap: 16px;
 }
 label { display: grid; gap: 6px; font-weight: 700; color: #334155; }
-input, select {
+input, select, textarea {
   width: 100%;
   border: 1px solid #cbd5e1;
   border-radius: 12px;
   padding: 10px 12px;
   background: #f8fafc;
 }
+textarea { resize: vertical; min-height: 96px; }
 .button-row { display: flex; gap: 12px; flex-wrap: wrap; }
 button {
   border: 0;
@@ -95,6 +96,7 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 .section-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
 .grid-two { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(360px, 0.8fr); gap: 18px; }
 @media (max-width: 960px) { .grid-two { grid-template-columns: 1fr; } }
+.graph-stack { display: grid; gap: 12px; }
 
 .scroll-card { max-height: 660px; overflow: auto; }
 .peer-list { display: grid; gap: 16px; }
@@ -134,6 +136,8 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 }
 .edge line { stroke: #2563eb; stroke-width: 2.4; opacity: 0.8; }
 .edge text { fill: #0f172a; font-size: 12px; font-weight: 800; paint-order: stroke; stroke: white; stroke-width: 4px; }
+.neighbor-edge { stroke: #64748b; stroke-width: 2.2; opacity: 0.62; }
+.neighbor-card .network-svg { min-height: 320px; }
 .node circle { fill: white; stroke: #0f172a; stroke-width: 2.5; }
 .node text { text-anchor: middle; font-weight: 900; fill: #0f172a; }
 .node[role="button"] { cursor: pointer; }
@@ -220,6 +224,9 @@ th { color: #475569; font-size: 0.82rem; text-transform: uppercase; letter-spaci
   flex-direction: column;
   gap: 6px;
 }
+.form-field-wide {
+  grid-column: span 2;
+}
 .form-field label {
   font-weight: 700;
   color: #334155;
@@ -230,9 +237,15 @@ th { color: #475569; font-size: 0.82rem; text-transform: uppercase; letter-spaci
   .form-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+  .form-field-wide {
+    grid-column: span 2;
+  }
 }
 @media (max-width: 500px) {
   .form-grid {
     grid-template-columns: 1fr;
+  }
+  .form-field-wide {
+    grid-column: span 1;
   }
 }

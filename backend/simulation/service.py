@@ -7,16 +7,30 @@ from .initial_state import clone_initial_state, generate_initial_state
 from .simulator import BitTorrentSimulator
 
 
+def _custom_neighbor_graph_from_payload(payload: Mapping[str, Any]) -> Any | None:
+    return (
+        payload.get("topologyAdjacency")
+        or payload.get("topology_adjacency")
+        or payload.get("adjacencyList")
+        or payload.get("adjacency")
+        or payload.get("topologyEdges")
+        or payload.get("neighborGraph")
+        or payload.get("neighbor_graph")
+    )
+
+
 def run_single_simulation(payload: Mapping[str, Any] | None = None) -> dict[str, Any]:
     payload = dict(payload or {})
     strategy = payload.get("strategy", "randomFirst")
     config = SimulationConfig.from_payload(payload)
     initial_state = payload.get("initialState") or generate_initial_state(config)
+    neighbor_graph = _custom_neighbor_graph_from_payload(payload)
     simulator = BitTorrentSimulator(
         config=config,
         strategy=strategy,
         initial_state=initial_state,
         churn_events=payload.get("churnEvents") or payload.get("churn_events") or [],
+        neighbor_graph=neighbor_graph,
     )
     return simulator.run()
 
@@ -26,18 +40,21 @@ def compare_strategies(payload: Mapping[str, Any] | None = None) -> dict[str, An
     config = SimulationConfig.from_payload(payload)
     initial_state = clone_initial_state(payload.get("initialState") or generate_initial_state(config))
     churn_events = payload.get("churnEvents") or payload.get("churn_events") or []
+    neighbor_graph = _custom_neighbor_graph_from_payload(payload)
 
     random_first = BitTorrentSimulator(
         config=config,
         strategy="randomFirst",
         initial_state=clone_initial_state(initial_state),
         churn_events=churn_events,
+        neighbor_graph=neighbor_graph,
     ).run()
     rarest_first = BitTorrentSimulator(
         config=config,
         strategy="rarestFirst",
         initial_state=clone_initial_state(initial_state),
         churn_events=churn_events,
+        neighbor_graph=neighbor_graph,
     ).run()
 
     if not random_first["completed"] and not rarest_first["completed"]:
@@ -60,6 +77,7 @@ def compare_strategies(payload: Mapping[str, Any] | None = None) -> dict[str, An
         "winner": winner,
         "difference": difference,
         "initialState": initial_state,
+        "neighborGraph": random_first["neighborGraph"],
         "churnEvents": churn_events,
         "config": config.to_dict(),
     }

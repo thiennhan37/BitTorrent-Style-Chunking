@@ -15,6 +15,8 @@ export default function ConfigPanel({
       'upload_bandwidth',
       'latencyMs',
       'initialChunkProbability',
+      'neighborsPerPeer',
+      'topologyRewireProbability',
       'max_download_slots',
       'max_upload_slots',
     ]);
@@ -92,6 +94,17 @@ export default function ConfigPanel({
               />
             </div>
             <div className="form-field">
+              <label htmlFor="initialDistributionMode">Initial chunks</label>
+              <select
+                id="initialDistributionMode"
+                value={form.initialDistributionMode}
+                onChange={(e) => updateField('initialDistributionMode', e.target.value)}
+              >
+                <option value="balancedRandom">Balanced random</option>
+                <option value="singleSeeder">Peer 0 seeder</option>
+              </select>
+            </div>
+            <div className="form-field">
               <label htmlFor="max_download_slots">Max download slots</label>
               <input
                 id="max_download_slots"
@@ -117,6 +130,59 @@ export default function ConfigPanel({
                 <option value="randomFirst">Random-First</option>
                 <option value="rarestFirst">Rarest-First</option>
               </select>
+            </div>
+          </div>
+        </div>
+
+        <div className="form-group-section">
+          <h3 style={{ fontSize: '1rem', marginBottom: '12px', marginTop: '8px' }}>Neighbor Topology</h3>
+          <div className="form-grid">
+            <div className="form-field">
+              <label htmlFor="topologyMode">Topology mode</label>
+              <select id="topologyMode" value={form.topologyMode} onChange={(e) => updateField('topologyMode', e.target.value)}>
+                <option value="fullMesh">Full mesh</option>
+                <option value="randomK">Random k-neighbor</option>
+                <option value="ring">Ring</option>
+                <option value="smallWorld">Small world</option>
+                <option value="star">Peer 0 hub</option>
+                <option value="custom">Custom adjacency</option>
+              </select>
+            </div>
+            <div className="form-field">
+              <label htmlFor="neighborsPerPeer">Neighbors per peer</label>
+              <input
+                id="neighborsPerPeer"
+                type="number"
+                min={form.topologyMode === 'smallWorld' ? '2' : '1'}
+                step={form.topologyMode === 'smallWorld' ? '2' : '1'}
+                value={form.neighborsPerPeer}
+                onChange={(e) => updateField('neighborsPerPeer', e.target.value)}
+                disabled={!['randomK', 'smallWorld'].includes(form.topologyMode)}
+              />
+            </div>
+            <div className="form-field">
+              <label htmlFor="topologyRewireProbability">Rewire probability</label>
+              <input
+                id="topologyRewireProbability"
+                type="number"
+                min="0"
+                max="1"
+                step="0.01"
+                value={form.topologyRewireProbability}
+                onChange={(e) => updateField('topologyRewireProbability', e.target.value)}
+                disabled={form.topologyMode !== 'smallWorld'}
+              />
+            </div>
+            <div className="form-field form-field-wide">
+              <label htmlFor="topologyAdjacency">Custom adjacency</label>
+              <textarea
+                id="topologyAdjacency"
+                rows="4"
+                value={form.topologyAdjacency}
+                onChange={(e) => updateField('topologyAdjacency', e.target.value)}
+                placeholder={'0: 1, 2\n1: 0, 3'}
+                disabled={form.topologyMode !== 'custom'}
+              />
             </div>
           </div>
         </div>

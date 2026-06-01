@@ -6,7 +6,7 @@ from typing import Any
 
 from .models import Peer
 
-
+# đọc lại strategy
 class ChunkSelectionStrategy(ABC):
     key = "base"
     display_name = "Base Strategy"
@@ -90,7 +90,7 @@ class RarestFirstStrategy(ChunkSelectionStrategy):
             sources = self.eligible_sources(downloader, peers, chunk_id)
             if not downloader.can_start_download(chunk_id) or not sources:
                 continue
-            copies = sum(1 for peer in peers if peer.online and peer.id != downloader.id and peer.has_chunk(chunk_id))
+            copies = len(sources)
             if copies <= 0:
                 continue
 

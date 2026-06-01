@@ -4,16 +4,21 @@ from dataclasses import asdict, dataclass
 from math import ceil
 from typing import Any, Mapping
 
-
+#  thêm các options cho neighbor graph
+# thêm các chuẩn hóa 
 @dataclass(slots=True)
 class SimulationConfig:
 
 
-    file_size_mb: int = 10
+    file_size_mb: int = 10 
     chunk_size_kb: int = 256
     peer_count: int = 10
     seed: int = 1
     initial_chunk_probability: float = 0.3
+    initial_distribution_mode: str = "balancedRandom"
+    topology_mode: str = "fullMesh"
+    neighbors_per_peer: int = 4
+    topology_rewire_probability: float = 0.15
     bandwidth_kbps: float = 128.0
     upload_bandwidth_kbps: float | None = 128.0
     latency_ms: float = 50.0
@@ -48,6 +53,14 @@ class SimulationConfig:
             raise ValueError("peer_count must be > 1")
         if not 0 < self.initial_chunk_probability < 1:
             raise ValueError("initial_chunk_probability must be between 0 and 1")
+        if self.initial_distribution_mode not in {"balancedRandom", "singleSeeder"}:
+            raise ValueError("initial_distribution_mode must be one of: balancedRandom, singleSeeder")
+        if self.topology_mode not in {"fullMesh", "randomK", "ring", "smallWorld", "star", "custom"}:
+            raise ValueError("topology_mode must be one of: fullMesh, randomK, ring, smallWorld, star, custom")
+        if self.neighbors_per_peer <= 0:
+            raise ValueError("neighbors_per_peer must be > 0")
+        if not 0 <= self.topology_rewire_probability <= 1:
+            raise ValueError("topology_rewire_probability must be between 0 and 1")
         if self.bandwidth_kbps <= 0:
             raise ValueError("bandwidth_kbps must be > 0")
         if self.effective_upload_bandwidth_kbps <= 0:
@@ -75,6 +88,10 @@ class SimulationConfig:
                 "uploadBandwidthKbps": self.effective_upload_bandwidth_kbps,
                 "download_bandwidth": self.bandwidth_kbps,
                 "upload_bandwidth": self.effective_upload_bandwidth_kbps,
+                "initialDistributionMode": self.initial_distribution_mode,
+                "topologyMode": self.topology_mode,
+                "neighborsPerPeer": self.neighbors_per_peer,
+                "topologyRewireProbability": self.topology_rewire_probability,
                 "effectiveUploadBandwidthKbps": self.effective_upload_bandwidth_kbps,
                 "bandwidthUnit": "KB/s",
                 "timeUnit": "seconds",
@@ -93,6 +110,44 @@ class SimulationConfig:
                     return payload[name]
             return default
 
+        def normalize_initial_distribution_mode(value: Any) -> str:
+            normalized = str(value or "").replace("-", "").replace("_", "").lower()
+            mapping = {
+                "balanced": "balancedRandom",
+                "balancedrandom": "balancedRandom",
+                "random": "balancedRandom",
+                "randompeer": "balancedRandom",
+                "single": "singleSeeder",
+                "singleseeder": "singleSeeder",
+                "seeder": "singleSeeder",
+                "seedpeer": "singleSeeder",
+                "peer0": "singleSeeder",
+                "peer0seeder": "singleSeeder",
+            }
+            if normalized not in mapping:
+                raise ValueError("initialDistributionMode must be one of: balancedRandom, singleSeeder")
+            return mapping[normalized]
+
+        def normalize_topology_mode(value: Any) -> str:
+            normalized = str(value or "").replace("-", "").replace("_", "").lower()
+            mapping = {
+                "full": "fullMesh",
+                "fullmesh": "fullMesh",
+                "mesh": "fullMesh",
+                "random": "randomK",
+                "randomk": "randomK",
+                "ring": "ring",
+                "smallworld": "smallWorld",
+                "wattsstrogatz": "smallWorld",
+                "star": "star",
+                "hub": "star",
+                "hubspoke": "star",
+                "custom": "custom",
+            }
+            if normalized not in mapping:
+                raise ValueError("topologyMode must be one of: fullMesh, randomK, ring, smallWorld, star, custom")
+            return mapping[normalized]
+
         config = cls(
             file_size_mb=int(pick("fileSizeMb", "file_size_mb", default=defaults.file_size_mb)),
             chunk_size_kb=int(pick("chunkSizeKb", "chunk_size_kb", default=defaults.chunk_size_kb)),
@@ -103,6 +158,26 @@ class SimulationConfig:
                     "initialChunkProbability",
                     "initial_chunk_probability",
                     default=defaults.initial_chunk_probability,
+                )
+            ),
+            initial_distribution_mode=normalize_initial_distribution_mode(
+                pick(
+                    "initialDistributionMode",
+                    "initial_distribution_mode",
+                    default=defaults.initial_distribution_mode,
+                )
+            ),
+            topology_mode=normalize_topology_mode(
+                pick("topologyMode", "topology_mode", default=defaults.topology_mode)
+            ),
+            neighbors_per_peer=int(
+                pick("neighborsPerPeer", "neighbors_per_peer", default=defaults.neighbors_per_peer)
+            ),
+            topology_rewire_probability=float(
+                pick(
+                    "topologyRewireProbability",
+                    "topology_rewire_probability",
+                    default=defaults.topology_rewire_probability,
                 )
             ),
             bandwidth_kbps=float(

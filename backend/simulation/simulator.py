@@ -10,15 +10,10 @@ from .models import Peer, TransferRecord
 from .network import NetworkModel
 from .simpy_compat import Environment
 from .strategies import build_strategy
+from .topology import NeighborGraph, build_neighbor_graph, graph_to_dict
 
 
 class BitTorrentSimulator:
-    """Event-based virtual-time simulator for BitTorrent-style chunk exchange.
-
-    Each peer is a SimPy process that sleeps on a global swarm event. Transfers
-    reserve upload/download slots immediately, then move data in short ticks so
-    bandwidth is recalculated from the current active upload/download counts.
-    """
 
     def __init__(
         self,
@@ -26,6 +21,7 @@ class BitTorrentSimulator:
         strategy: str = "randomFirst",
         initial_state: list[list[int]] | list[set[int]] | None = None,
         churn_events: list[dict[str, Any]] | None = None,
+        neighbor_graph: Any | None = None,
     ) -> None:
         self.config = config or SimulationConfig()
         self.config.validate()
@@ -36,6 +32,7 @@ class BitTorrentSimulator:
         self.network = NetworkModel(self.config)
         self.strategy = build_strategy(strategy, self.rng, self.network)
         self.churn_events = self._normalize_churn_events(churn_events or [])
+        self.neighbor_graph: NeighborGraph = build_neighbor_graph(self.config, neighbor_graph)
         # Global event dung de danh thuc tat ca peer khi swarm co thay doi quan trong:
         # chunk moi xuat hien hoac slot/bandwidth duoc giai phong sau khi transfer ket thuc.
         self.swarm_event = self.env.event()
@@ -64,6 +61,7 @@ class BitTorrentSimulator:
                     latency_ms=self.config.latency_ms,
                     max_download_slots=self.config.max_download_slots,
                     max_upload_slots=self.config.max_upload_slots,
+                    neighbors=set(self.neighbor_graph.get(peer_id, set())),
                 )
             )
         return peers
@@ -443,6 +441,11 @@ class BitTorrentSimulator:
             "transfers": [record.to_dict() for record in self.transfer_records],
             "progressTimeline": self.progress_timeline,
             "initialState": clone_initial_state(self.initial_state),
+            "neighborGraph": graph_to_dict(
+                self.neighbor_graph,
+                self.config.topology_mode,
+                self.config.neighbors_per_peer,
+            ),
             "finalPeers": final_peers,
             "chunkAvailability": self.chunk_availability(),
             "config": self.config.to_dict(),
