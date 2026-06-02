@@ -226,11 +226,17 @@ class BitTorrentSimulator:
         online = event["online"]
         # tránh update trùng trạng thái cũ
         if peer.online != online:
+            # Ghi log churn ngay khi trạng thái thay đổi để đảm bảo thứ tự thời gian
+            # phù hợp với mong muốn hiển thị ở frontend (CHURN xảy ra trước,
+            # sau đó các CANCEL sẽ xuất hiện "phía trên" khi bảng được đảo ngược).
             peer.online = online
+            self._log_churn_event(peer, online)
             if not online:
                 self._cancel_peer_transfers(peer)
-
-        self._log_churn_event(peer, online)
+        else:
+            # Nếu trạng thái không đổi, vẫn ghi log churn để phản ánh action,
+            # tránh làm lệch thứ tự hiển thị với các sự kiện khác cùng thời điểm.
+            self._log_churn_event(peer, online)
         self._record_progress()
         # kiểm tra các peer online đều đã hoàn thành thì xác nhận completed
         if self.all_complete() and not self.completed:
