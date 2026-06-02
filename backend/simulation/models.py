@@ -16,11 +16,11 @@ class Peer:
     max_upload_slots: int = 3
     neighbors: set[int] | None = None
     # can unique chunk_id cho moi transfer, de tranh tinh huong 
-    # 2 transfer cung chunk tu 2 source khac nhau  
+    # cung dowload nhieu chunk tu nhieu source khac nhau
     active_downloads: dict[int, int] = field(default_factory=dict)  # chunk_id -> source_peer_id
     
     # can unique chunk_id cho moi transfer, de tranh tinh huong
-    # cung upload 1 luc nhieu chunk cung 1 destination
+    # cung upload 1 luc nhieu chunk cho nhieu destination khac nhau
     active_uploads: dict[int, int] = field(default_factory=dict)  # destination_peer_id -> chunk_id
 
     def has_chunk(self, chunk_id: int) -> bool:

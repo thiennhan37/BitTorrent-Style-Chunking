@@ -163,6 +163,40 @@ def test_rarest_strategy_spreads_in_flight_rare_chunks():
     assert selected == 1
 
 
+def test_ranked_sources_lists_all_eligible_uploaders_best_first():
+    from simulation.models import Peer
+
+    peers = [
+        Peer(id=0, owned_chunks=set()),
+        Peer(id=1, owned_chunks={5}),
+        Peer(id=2, owned_chunks={5}),
+    ]
+    strategy = RandomFirstStrategy(random.Random(99))
+    ranked = strategy.ranked_sources(peers[0], peers, 5)
+
+    assert {peer.id for peer in ranked} == {1, 2}
+    assert all(peer.can_upload_to(peers[0], 5) for peer in ranked)
+
+
+def test_scheduler_tries_next_eligible_source_when_best_is_busy():
+    config = SimulationConfig(
+        file_size_mb=1,
+        chunk_size_kb=256,
+        peer_count=3,
+        max_upload_slots=1,
+        seed=42,
+    )
+    initial_state = [[0], [0, 1], [0, 1]]
+    sim = BitTorrentSimulator(config=config, strategy="randomFirst", initial_state=initial_state)
+    # Peer 1's only upload slot is already taken; peer 2 can still serve chunk 1.
+    sim.peers[1].active_uploads[2] = 0
+
+    scheduled = sim._schedule_peer_downloads(sim.peers[0])
+
+    assert scheduled == 1
+    assert sim.peers[0].active_downloads[1] == 2
+
+
 def test_source_selection_policy_is_shared_between_strategies():
     from simulation.models import Peer
 

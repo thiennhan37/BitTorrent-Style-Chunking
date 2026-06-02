@@ -6,7 +6,7 @@ from typing import Any
 
 from .models import Peer
 
-# đọc lại strategy
+
 class ChunkSelectionStrategy(ABC):
     key = "base"
     display_name = "Base Strategy"
@@ -34,18 +34,23 @@ class ChunkSelectionStrategy(ABC):
             return float("inf")
         return latency_ms / 1000.0 + self.network.config.chunk_size_kb / bandwidth
 
-    def select_source(self, downloader: Peer, peers: list[Peer], chunk_id: int) -> Peer | None:
+    def _source_rank_key(self, source: Peer, downloader: Peer) -> tuple[float, int, float]:
+        return (
+            self._source_estimated_duration(source, downloader),
+            source.active_upload_count,
+            self.rng.random(),
+        )
+
+    def ranked_sources(self, downloader: Peer, peers: list[Peer], chunk_id: int) -> list[Peer]:
+        """Eligible uploaders for chunk_id, best-first (same order as select_source)."""
         sources = self.eligible_sources(downloader, peers, chunk_id)
         if not sources:
-            return None
-        return min(
-            sources,
-            key=lambda source: (
-                self._source_estimated_duration(source, downloader),
-                source.active_upload_count,
-                self.rng.random(),
-            ),
-        )
+            return []
+        return sorted(sources, key=lambda source: self._source_rank_key(source, downloader))
+
+    def select_source(self, downloader: Peer, peers: list[Peer], chunk_id: int) -> Peer | None:
+        ranked = self.ranked_sources(downloader, peers, chunk_id)
+        return ranked[0] if ranked else None
 
     @abstractmethod
     def select_chunk(self, downloader: Peer, peers: list[Peer], total_chunks: int) -> int | None:
