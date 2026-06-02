@@ -41,7 +41,7 @@ class NetworkModel:
     
     def link_latency_factor(self, source: Peer, destination: Peer) -> float:
         # Directed peer links vary between 100% and 175% of the configured base.
-        return 1 + self._link_unit(source, destination, salt=2)
+        return 1 + self._link_unit(source, destination, salt=2) * 0.75
 
     def shared_upload_bandwidth(self, source: Peer) -> float:
         # Upload cua mot peer duoc chia deu cho tat ca upload dang active.

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 function polarToCartesian(cx, cy, radius, angleDeg) {
   const angle = (Math.PI / 180) * angleDeg;
@@ -6,6 +6,32 @@ function polarToCartesian(cx, cy, radius, angleDeg) {
     x: cx + radius * Math.cos(angle),
     y: cy + radius * Math.sin(angle),
   };
+}
+
+const EVENT_ORDER = { START: 0, END: 1, CANCEL: 1, CHURN: 2 };
+
+function compareLogs(a, b) {
+  const timeDiff = Number(a.time) - Number(b.time);
+  if (timeDiff !== 0) return timeDiff;
+  const orderDiff = (EVENT_ORDER[a.event] ?? 9) - (EVENT_ORDER[b.event] ?? 9);
+  if (orderDiff !== 0) return orderDiff;
+  return Number(a.transferId ?? -1) - Number(b.transferId ?? -1);
+}
+
+/** Transfers in flight at snapshot time (START seen, no END/CANCEL yet at or before maxTime). */
+function activeTransfersAtTime(logs, maxTime) {
+  const byId = new Map();
+  const sorted = [...logs].sort(compareLogs);
+  for (const log of sorted) {
+    if (maxTime != null && Number(log.time) > maxTime) break;
+    if (log.transferId == null || log.sourcePeer == null || log.destinationPeer == null) continue;
+    if (log.event === 'START') {
+      byId.set(log.transferId, log);
+    } else if (log.event === 'END' || log.event === 'CANCEL') {
+      byId.delete(log.transferId);
+    }
+  }
+  return [...byId.values()];
 }
 
 export default function PeerNetworkGraph({
@@ -16,7 +42,6 @@ export default function PeerNetworkGraph({
   recommendedPeerId = null,
   onPeerClick = null,
 }) {
-  const [showAllTransfers, setShowAllTransfers] = useState(false);
   const size = 460;
   const center = size / 2;
   const radius = 170;
@@ -24,12 +49,11 @@ export default function PeerNetworkGraph({
     const angle = -90 + (360 * peerId) / peerCount;
     return { peerId, ...polarToCartesian(center, center, radius, angle) };
   });
-  const completedTransfers = useMemo(
-    () => logs.filter((log) => log.event === 'END' && (maxTime == null || Number(log.time) <= maxTime)),
+  const activeTransfers = useMemo(
+    () => activeTransfersAtTime(logs, maxTime),
     [logs, maxTime],
   );
-  const transfersToRender = showAllTransfers ? completedTransfers : completedTransfers.slice(-12);
-  const recentTransfers = transfersToRender
+  const transfersToRender = activeTransfers
     .map((log) => ({ ...log, source: positions[log.sourcePeer], dest: positions[log.destinationPeer] }))
     .filter((log) => log.source && log.dest);
   const peerState = useMemo(() => new Map(peers.map((peer) => [peer.peerId, peer])), [peers]);
@@ -38,16 +62,10 @@ export default function PeerNetworkGraph({
     <section className="card peer-network-card">
       <h2>Peer network graph</h2>
       <p className="muted">
-        Showing {recentTransfers.length}/{completedTransfers.length} completed transfers as arrows.
+        {maxTime == null
+          ? `Showing ${transfersToRender.length} active transfer(s).`
+          : `Showing ${transfersToRender.length} transfer(s) in progress at t = ${maxTime}s.`}
       </p>
-      <label className="graph-toggle">
-        <input
-          type="checkbox"
-          checked={showAllTransfers}
-          onChange={(event) => setShowAllTransfers(event.target.checked)}
-        />
-        Show all completed transfers
-      </label>
       <div className="network-graph-body">
       <svg
         className="network-svg"
@@ -61,7 +79,7 @@ export default function PeerNetworkGraph({
             <path d="M0,0 L0,6 L8,3 z" />
           </marker>
         </defs>
-        {recentTransfers.map((transfer, index) => (
+        {transfersToRender.map((transfer, index) => (
           <g key={`${transfer.transferId}-${index}`} className="edge">
             <line
               x1={transfer.source.x}
