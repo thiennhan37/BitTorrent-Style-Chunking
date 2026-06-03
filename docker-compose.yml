@@ -7,7 +7,6 @@ services:
     ports:
       - "5000:5000"
     restart: always
-    # Nếu backend cần kết nối tới frontend hoặc có biến môi trường nào, bạn có thể thêm ở đây:
     # environment:
     #   - FRONTEND_URL=http://localhost:3000
 

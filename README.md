@@ -84,7 +84,7 @@ Bước 2: Mở Terminal tại thư mục chứa file docker-compose.yml
 Bước 3: Khởi chạy dự án Chạy câu lệnh sau để Docker tự động pull các image từ Docker Hub về và khởi động dự án:docker-compose up -d
 
 
-### Backend
+### Backend  
 
 ```bash
 cd backend

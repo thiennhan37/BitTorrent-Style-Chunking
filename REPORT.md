@@ -31,7 +31,7 @@ Phân phối file lớn từ một server trung tâm tới nhiều client gặp 
 
 Đồ án không triển khai client BitTorrent thật mà **mô phỏng** hành vi swarm với thời gian ảo, tập trung vào câu hỏi: *chiến lược chọn chunk nào giúp hoàn thành phân phối nhanh và ổn định hơn?*
 
-### 1.2 Mục tiêu
+### 1.2 Mục tiêu  
 Mục tiêu của đồ án là nghiên cứu và đánh giá hiệu quả của các chiến lược lựa chọn chunk trong môi trường phân phối tệp tin phân tán ngang hàng (Peer-to-Peer – P2P). Đồ án tập trung phân tích ảnh hưởng của thuật toán lựa chọn chunk đến khả năng phân phối dữ liệu, thời gian hoàn thành tải tệp và khả năng duy trì dữ liệu khi một số peer bị mất kết nối khỏi hệ thống.
 
 Trong hệ thống P2P, dữ liệu được chia thành nhiều chunk nhỏ và phân phối trên nhiều peer khác nhau thay vì phụ thuộc vào một máy chủ trung tâm. Tuy nhiên, hiệu quả của quá trình phân phối phụ thuộc lớn vào cách các peer lựa chọn chunk để trao đổi. Nếu một số chunk hiếm chưa được lan truyền đầy đủ trước khi peer đang sở hữu chúng rời mạng, toàn bộ hệ thống có thể gặp khó khăn trong việc hoàn thành việc tái tạo tệp.
