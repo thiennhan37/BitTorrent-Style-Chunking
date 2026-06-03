@@ -1,0 +1,20 @@
+# Sử dụng image Python làm base
+FROM python:3.10-slim
+
+# Thiết lập thư mục làm việc trong container
+WORKDIR /app
+
+# Copy file requirements.txt vào container
+COPY requirements.txt .
+
+# Cài đặt các thư viện cần thiết
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy toàn bộ mã nguồn vào container
+COPY . .
+
+# Khai báo port mà ứng dụng sẽ chạy (Ví dụ: 5000 cho Flask)
+EXPOSE 5000
+
+# Lệnh để chạy ứng dụng (Thay đổi tùy vào framework bạn dùng)
+CMD ["python", "app.py"]

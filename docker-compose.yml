@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  backend:
+    image: nhanthien/csdl:latest
+    container_name: bittorrent_backend
+    ports:
+      - "5000:5000"
+    restart: always
+    # Nếu backend cần kết nối tới frontend hoặc có biến môi trường nào, bạn có thể thêm ở đây:
+    # environment:
+    #   - FRONTEND_URL=http://localhost:3000
+
+  frontend:
+    image: nhanthien/csdl-frontend:latest
+    container_name: bittorrent_frontend
+    ports:
+      - "3000:80" # Map cổng 3000 ở máy ngoài vào cổng 80 trong container Nginx
+    restart: always
+    depends_on:
+      - backend

@@ -74,6 +74,15 @@ BitTorrent_12_5/
 ---
 
 ## Cài đặt và chạy
+## docker 
+Để chạy dự án này trên bất kỳ máy tính nào, yêu cầu duy nhất là máy đó đã cài đặt sẵn Docker và Docker Compose. Người dùng thực hiện theo các bước sau:
+
+Bước 1: Tải file docker-compose.yml Người dùng có thể sao chép trực tiếp nội dung file docker-compose.yml ở trên và lưu thành một file có tên là docker-compose.yml trong một thư mục bất kỳ. Hoặc nếu họ clone cả repository về thì có sẵn file này.
+
+Bước 2: Mở Terminal tại thư mục chứa file docker-compose.yml
+
+Bước 3: Khởi chạy dự án Chạy câu lệnh sau để Docker tự động pull các image từ Docker Hub về và khởi động dự án:docker-compose up -d
+
 
 ### Backend
 
